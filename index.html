@@ -432,42 +432,59 @@
             document.getElementById('spinBtn').disabled = true;
             document.getElementById('spinBtn').classList.add('opacity-50');
 
+            // 1. Determine the result first (Math)
             const sector = getRandomSector();
             
-            // Calculate target angle to land on this sector
-            // Sectors are 0->10%(36deg), 10->40%(108deg), 40->100%(216deg)
-            // But visual drawing starts at 0 (3 o'clock) and goes clockwise.
-            // Pointer is at 12 o'clock (-90deg or 270deg).
+            // 2. Calculate the specific angle to align this sector with the pointer
+            // The pointer is at 12 o'clock (270 degrees relative to 0 at 3 o'clock)
             
-            // Simplified animation logic:
-            // Just spin lots of times + random offset
+            // Find the start/end angles of the winning sector
+            let startDeg = 0;
+            let endDeg = 0;
+            let currentAngleSum = 0;
+            
+            for(let s of sectors) {
+                const sectorDegrees = s.weight * 360;
+                if (s.id === sector.id) {
+                    startDeg = currentAngleSum;
+                    endDeg = currentAngleSum + sectorDegrees;
+                    break;
+                }
+                currentAngleSum += sectorDegrees;
+            }
+
+            // Pick a random specific angle within this sector (with padding to avoid lines)
+            const padding = 5; // degrees
+            const randomAngleInSector = startDeg + padding + Math.random() * (endDeg - startDeg - (padding * 2));
+
+            // Calculate how much we need to rotate to bring 'randomAngleInSector' to 270 degrees
+            // Formula: TargetPos = (InitialAngle + Rotation) % 360
+            // We want: (randomAngleInSector + Rotation) % 360 = 270
+            // So: Rotation = 270 - randomAngleInSector
+            
+            const currentMod = currentRotation % 360;
+            let targetRotation = (270 - randomAngleInSector) - currentMod;
+            
+            // Ensure positive rotation (clockwise)
+            while (targetRotation < 0) {
+                targetRotation += 360;
+            }
+            
+            // Add random number of full spins (min 5) for excitement
             const spins = 5;
-            const baseRotate = 360 * spins; 
-            const randomOffset = Math.floor(Math.random() * 360);
-            const totalRotate = baseRotate + randomOffset;
+            const finalRotation = targetRotation + (spins * 360);
             
-            currentRotation += totalRotate;
+            currentRotation += finalRotation;
             
             // Apply CSS transform
             canvas.style.transform = `rotate(${currentRotation}deg)`;
 
-            // Calculate which sector we landed on actually based on rotation
-            // (Reversing the visual logic is hard, let's just force the math logic)
             // Wait for animation end
             setTimeout(() => {
                 isSpinning = false;
                 document.getElementById('spinBtn').disabled = false;
                 document.getElementById('spinBtn').classList.remove('opacity-50');
                 
-                // For the sake of the physics matching the math in this simple app, 
-                // we will use the Weighted Random result we calculated *before* the spin
-                // and just pretend the wheel landed there. 
-                // In a rigorous physics engine we'd do the opposite.
-                
-                // To avoid visual disconnect, let's just process a random result 
-                // based on probability law regardless of where the CSS animation stopped visually
-                // (It's a "simulation" tool, not a perfect casino engine).
-                // Actually, let's stick to the generated 'sector' variable
                 processResult(sector);
                 
             }, 4000); // matches CSS transition time
